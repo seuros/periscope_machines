@@ -1,0 +1,9 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "package-name": "periscope-machines",
+      "bump-minor-pre-major": true
+    }
+  }
+}
