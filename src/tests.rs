@@ -67,9 +67,9 @@ fn ownership_is_scope_and_issued_range() {
 }
 
 #[test]
+#[allow(clippy::expect_used)]
 fn the_last_id_is_issued_then_the_scope_is_spent_and_unchanged() {
-    let mut issuer = Issuer::new(u16::MAX);
-    issuer.issued = SEQUENCE_MAX - 1;
+    let mut issuer = Issuer::resumed(u16::MAX, SEQUENCE_MAX - 1).expect("in range");
     assert_eq!(issuer.remaining(), 1);
     assert_eq!(issuer.issue(), Ok(u64::MAX));
     let before = issuer;
@@ -86,4 +86,26 @@ fn everything_is_usable_in_constants() {
     const SCOPE: u16 = scope_of(ID);
     const FIRST: Result<u64, Refusal> = Issuer::new(4).peek();
     assert_eq!((ID, SCOPE, FIRST), (scoped(4, 2), 4, Ok(scoped(4, 1))));
+}
+
+#[test]
+fn a_resumed_issuer_continues_where_the_saved_one_stopped() {
+    const RESUMED: Option<Issuer> = Issuer::resumed(1, 2);
+    let mut first = Issuer::new(5);
+    for _ in 0..3 {
+        assert!(first.issue().is_ok());
+    }
+    let mut resumed = Issuer::resumed(first.scope(), first.issued());
+    assert_eq!(resumed, Some(first));
+    assert_eq!(resumed.as_mut().map(Issuer::issue), Some(Ok(scoped(5, 4))));
+    assert_eq!(resumed.map(|issuer| issuer.owns(scoped(5, 3))), Some(true));
+    assert_eq!(Issuer::resumed(5, 0), Some(Issuer::new(5)));
+    // A fully spent scope can be resumed and stays spent; beyond it is not a state.
+    let spent = Issuer::resumed(5, SEQUENCE_MAX);
+    assert_eq!(
+        spent.map(|issuer| issuer.peek()),
+        Some(Err(Refusal::Exhausted))
+    );
+    assert_eq!(Issuer::resumed(5, SEQUENCE_MAX + 1), None);
+    assert_eq!(RESUMED.map(|issuer| issuer.issued()), Some(2));
 }

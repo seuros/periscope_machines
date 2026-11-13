@@ -75,6 +75,20 @@ impl Issuer {
         Self { scope, issued: 0 }
     }
 
+    /// Resume a scope that has already issued `issued` ids, from saved state.
+    ///
+    /// The next id is sequence `issued + 1`; everything up to `issued` is owned.
+    /// `None` when `issued` is beyond [`SEQUENCE_MAX`], which no issuer reaches.
+    /// Resuming from a count lower than what was really issued reissues ids:
+    /// persist [`Issuer::issued`] before handing an id out.
+    #[must_use]
+    pub const fn resumed(scope: u16, issued: u64) -> Option<Self> {
+        if issued > SEQUENCE_MAX {
+            return None;
+        }
+        Some(Self { scope, issued })
+    }
+
     /// The scope carried by every id this issuer hands out.
     #[must_use]
     pub const fn scope(&self) -> u16 {

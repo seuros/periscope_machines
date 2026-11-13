@@ -49,6 +49,9 @@ let _: Refusal = Refusal::Exhausted;
   unchanged. Raw zero is never issued, so it can stand for "no id".
 - **Scope zero is the plain counter.** `Issuer::new(0)` issues 1, 2, 3, so a
   core that had unscoped ids keeps the same values for its default scope.
+- **`resumed` restores saved state.** `Issuer::resumed(scope, issued)`
+  continues after `issued` ids. Resuming from too low a count reissues ids, so
+  persist `issued()` before handing an id out.
 - **`peek` issues nothing.** It returns what the next `issue` will return, for
   a core that must check its own tables before committing to an id.
 - **`owns` proves origin, not liveness.** It is true for an id of this scope
