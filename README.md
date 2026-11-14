@@ -35,6 +35,10 @@ let next = near.peek();
 assert_eq!(next, Ok(scoped(1, 2)));
 assert_eq!(near.issue(), next);
 
+// The id most recently issued, or nothing before the first.
+assert_eq!(near.last(), Some(scoped(1, 2)));
+assert_eq!(Issuer::new(3).last(), None);
+
 assert_eq!((scope_of(scoped(7, 42)), sequence_of(scoped(7, 42))), (7, 42));
 let _: Refusal = Refusal::Exhausted;
 ```
@@ -54,6 +58,9 @@ let _: Refusal = Refusal::Exhausted;
   persist `issued()` before handing an id out.
 - **`peek` issues nothing.** It returns what the next `issue` will return, for
   a core that must check its own tables before committing to an id.
+- **`last` is the id most recently issued.** `None` before the first, so a
+  core never rebuilds it as `scoped(scope, issued)` and answers a non-id.
+  A refused `issue` leaves it alone; a resumed issuer answers its saved last.
 - **`owns` proves origin, not liveness.** It is true for an id of this scope
   whose sequence number was issued. Whether the id is still live is the
   caller's table. Proving origin is what lets a core tell "this was mine and

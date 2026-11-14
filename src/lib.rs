@@ -101,6 +101,18 @@ impl Issuer {
         self.issued
     }
 
+    /// The id most recently issued; `None` before the first.
+    ///
+    /// The whole id, scope included: what the last honoured [`Issuer::issue`]
+    /// returned, or what a resumed issuer's saved state had issued last.
+    #[must_use]
+    pub const fn last(&self) -> Option<u64> {
+        if self.issued == 0 {
+            return None;
+        }
+        Some(scoped(self.scope, self.issued))
+    }
+
     /// How many ids are left before [`Refusal::Exhausted`].
     #[must_use]
     pub const fn remaining(&self) -> u64 {
