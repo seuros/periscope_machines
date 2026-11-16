@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/seuros/periscope_machines/compare/periscope-machines-v0.4.0...periscope-machines-v0.5.0) (2026-11-16)
+
+
+### Features
+
+* Issuer::restored(scope, last) resumes an issuer from its last token ([9696ca5](https://github.com/seuros/periscope_machines/commit/9696ca58324d4079037687bb2a3580512adef483))
+
 ## [0.4.0](https://github.com/seuros/periscope_machines/compare/periscope-machines-v0.3.0...periscope-machines-v0.4.0) (2026-11-14)
 
 
