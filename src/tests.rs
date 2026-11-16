@@ -118,9 +118,64 @@ fn everything_is_usable_in_constants() {
     const FIRST: Result<u64, Refusal> = Issuer::new(4).peek();
     const NONE: Option<u64> = Issuer::new(4).last();
     const RESUMED: Option<Issuer> = Issuer::resumed(1, 2);
+    const RESTORED: Option<Issuer> = Issuer::restored(1, Some(scoped(1, 2)));
+    assert_eq!(RESTORED, RESUMED);
     assert_eq!(
         (ID, SCOPE, FIRST, NONE),
         (scoped(4, 2), 4, Ok(scoped(4, 1)), None)
     );
     assert_eq!(RESUMED.map(|issuer| issuer.issued()), Some(2));
+}
+
+#[test]
+fn a_restored_issuer_continues_after_its_last_id() {
+    // Nothing issued is spelled `None`, and restores a fresh issuer.
+    assert_eq!(Issuer::restored(5, None), Some(Issuer::new(5)));
+    assert_eq!(
+        Issuer::restored(5, Issuer::new(5).last()),
+        Some(Issuer::new(5))
+    );
+
+    let mut first = Issuer::new(5);
+    for _ in 0..3 {
+        assert!(first.issue().is_ok());
+    }
+    let mut restored = Issuer::restored(first.scope(), first.last());
+    assert_eq!(restored, Some(first));
+    assert_eq!(restored, Issuer::resumed(5, 3));
+    assert_eq!(restored.as_mut().map(Issuer::issue), Some(Ok(scoped(5, 4))));
+    assert_eq!(restored.map(|issuer| issuer.owns(scoped(5, 3))), Some(true));
+
+    // `last` and `restored` round-trip at both ends of the sequence.
+    for issued in [0, 1, 2, SEQUENCE_MAX - 1, SEQUENCE_MAX] {
+        for scope in [0, 1, u16::MAX] {
+            let issuer = Issuer::resumed(scope, issued);
+            assert_eq!(
+                issuer.and_then(|issuer| Issuer::restored(scope, issuer.last())),
+                issuer
+            );
+        }
+    }
+    let spent = Issuer::restored(u16::MAX, Some(u64::MAX));
+    assert_eq!(
+        spent.map(|issuer| (issuer.peek(), issuer.remaining())),
+        Some((Err(Refusal::Exhausted), 0))
+    );
+}
+
+#[test]
+fn restored_refuses_an_id_that_is_not_of_the_scope() {
+    // Another scope: the scope is the caller's, never read out of the id.
+    assert_eq!(Issuer::restored(5, Some(scoped(6, 3))), None);
+    // An id that lost its top bits cannot land a scoped issuer in scope zero.
+    assert_eq!(Issuer::restored(5, Some(sequence_of(scoped(5, 3)))), None);
+    assert_eq!(Issuer::restored(0, Some(scoped(5, 3))), None);
+    // A zero sequence is no id, in any scope: not even the `0` of scope zero.
+    assert_eq!(Issuer::restored(0, Some(0)), None);
+    assert_eq!(Issuer::restored(5, Some(scoped(5, 0))), None);
+    // Every other id of the scope restores: no sequence is out of reach.
+    assert_eq!(
+        Issuer::restored(0, Some(1)).map(|issuer| issuer.last()),
+        Some(Some(1))
+    );
 }

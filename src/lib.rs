@@ -1,4 +1,5 @@
 #![no_std]
+#![cfg_attr(not(test), deny(clippy::indexing_slicing))]
 #![doc = include_str!("../README.md")]
 
 use core::fmt;
@@ -89,6 +90,30 @@ impl Issuer {
         Some(Self { scope, issued })
     }
 
+    /// Resume `scope` from the id it issued last: what [`Issuer::last`]
+    /// answered on the previous issuer of this scope, `None` when it had
+    /// issued nothing (an issuer equal to [`Issuer::new`]).
+    ///
+    /// The scope is the caller's, never read out of the saved id, and the
+    /// saved id must be one of its ids: `None` when `last` is of another
+    /// scope or carries a zero sequence. So an id that lost its top bits, or
+    /// the `0` a store answers for a row that is not there, cannot resume an
+    /// issuer of a non-zero scope, and `0` is no id in scope zero either.
+    /// Every sequence an id can carry is one an issuer reaches, so nothing
+    /// else is refused: `restored(issuer.scope(), issuer.last())` is the
+    /// issuer again, for every issuer.
+    #[must_use]
+    pub const fn restored(scope: u16, last: Option<u64>) -> Option<Self> {
+        let Some(last) = last else {
+            return Some(Self::new(scope));
+        };
+        let issued = sequence_of(last);
+        if scope_of(last) != scope || issued == 0 {
+            return None;
+        }
+        Some(Self { scope, issued })
+    }
+
     /// The scope carried by every id this issuer hands out.
     #[must_use]
     pub const fn scope(&self) -> u16 {
@@ -105,6 +130,7 @@ impl Issuer {
     ///
     /// The whole id, scope included: what the last honoured [`Issuer::issue`]
     /// returned, or what a resumed issuer's saved state had issued last.
+    /// Persist it beside [`Issuer::scope`]; [`Issuer::restored`] takes both.
     #[must_use]
     pub const fn last(&self) -> Option<u64> {
         if self.issued == 0 {
@@ -116,6 +142,7 @@ impl Issuer {
     /// How many ids are left before [`Refusal::Exhausted`].
     #[must_use]
     pub const fn remaining(&self) -> u64 {
+        // `issue` stops at `SEQUENCE_MAX`, so `issued` never exceeds it.
         SEQUENCE_MAX - self.issued
     }
 

@@ -39,6 +39,12 @@ assert_eq!(near.issue(), next);
 assert_eq!(near.last(), Some(scoped(1, 2)));
 assert_eq!(Issuer::new(3).last(), None);
 
+// Persist scope and last id; restore after a restart, never reissuing.
+let mut back = Issuer::restored(near.scope(), near.last());
+assert_eq!(back, Some(near));
+assert_eq!(back.as_mut().map(Issuer::issue), Some(Ok(scoped(1, 3))));
+assert_eq!(Issuer::restored(2, near.last()), None); // not an id of scope 2
+
 assert_eq!((scope_of(scoped(7, 42)), sequence_of(scoped(7, 42))), (7, 42));
 let _: Refusal = Refusal::Exhausted;
 ```
@@ -56,6 +62,14 @@ let _: Refusal = Refusal::Exhausted;
 - **`resumed` restores saved state.** `Issuer::resumed(scope, issued)`
   continues after `issued` ids. Resuming from too low a count reissues ids, so
   persist `issued()` before handing an id out.
+- **`restored` resumes from the last id.** `Issuer::restored(scope, last)`
+  takes the scope and what `last()` answered, an `Option<u64>`: `None`
+  restores a fresh issuer, and an id of another scope or with a zero
+  sequence is refused (`None`). The scope is never read out of the id, so
+  one that lost its top bits, or the `0` a store answers for a missing row,
+  cannot land an issuer in the wrong scope. Nothing else is refused:
+  `restored(issuer.scope(), issuer.last())` is the issuer again, so a core
+  that persists `last()` carries this one answer and asserts nothing.
 - **`peek` issues nothing.** It returns what the next `issue` will return, for
   a core that must check its own tables before committing to an id.
 - **`last` is the id most recently issued.** `None` before the first, so a
